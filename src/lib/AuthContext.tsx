@@ -55,11 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const uid = nextUser.uid
           const documentPath = `admins/${uid}`
           authDiagnostic('authenticated-user', { uid, projectId: firebaseProjectId, documentPath, checkId: currentCheckId })
-          await nextUser.getIdToken(true)
-          if (currentCheckId !== checkId) {
-            authDiagnostic('race-detected', { uid, documentPath, checkId: currentCheckId, latestCheckId: checkId })
-            return
-          }
 
           const adminSnapshot = await getDocFromServer(doc(db, 'admins', uid))
           const admin = adminSnapshot.data() as { role?: unknown; active?: unknown } | undefined
