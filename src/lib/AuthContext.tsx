@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { browserLocalPersistence, onAuthStateChanged, setPersistence, type User } from 'firebase/auth'
+import { browserLocalPersistence, onIdTokenChanged, setPersistence, type User } from 'firebase/auth'
 import { doc, getDocFromServer } from 'firebase/firestore'
 import { auth, db } from './firebase'
 
@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let checkId = 0
     const initializeAuth = async () => {
       await setPersistence(auth, browserLocalPersistence)
-      unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      unsubscribe = onIdTokenChanged(auth, async (nextUser) => {
         const currentCheckId = ++checkId
         setUser(nextUser)
         if (!nextUser) {
@@ -32,6 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         try {
           const uid = nextUser.uid
+          await nextUser.getIdToken(true)
+          if (currentCheckId !== checkId) return
+
           const adminSnapshot = await getDocFromServer(doc(db, 'admins', uid))
           if (currentCheckId !== checkId) return
 
