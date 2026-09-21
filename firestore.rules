@@ -16,32 +16,32 @@ service cloud.firestore {
 
     match /organizations/{organizationId} {
       allow read, create, update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /clinics/{clinicId} {
       allow read, create, update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /doctors/{doctorId} {
       allow read, create, update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /invitations/{invitationId} {
       allow read, create, update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /patients/{patientId} {
       allow read, create, update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /appointments/{appointmentId} {
       allow read, create, update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
   }
 }

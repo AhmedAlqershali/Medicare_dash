@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Eye, Pencil, Plus } from 'lucide-react'
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { DataToolbar } from '../components/DataToolbar'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAuth } from '../lib/AuthContext'
-import { addRecord, subscribeToCollection, updateRecord, type FirestoreRecord } from '../lib/firestoreService'
+import { addRecord, deleteOrganizationCascade, subscribeToCollection, updateRecord, type FirestoreRecord } from '../lib/firestoreService'
 
 type Organization = FirestoreRecord & { name: string; description?: string; status: 'active' | 'inactive' }
 type OrganizationForm = { name: string; description: string; status: Organization['status'] }
@@ -37,6 +37,9 @@ export function OrganizationsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [formError, setFormError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [deletingOrganization, setDeletingOrganization] = useState<Organization | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => subscribeToCollection<Organization>('organizations', (records) => {
     setOrganizations(records)
@@ -55,6 +58,23 @@ export function OrganizationsPage() {
   const openCreate = () => { setEditing(null); setForm({ ...emptyForm }); setFormError(''); setIsModalOpen(true) }
   const openEdit = (organization: Organization) => { setEditing(organization); setForm({ name: organization.name, description: organization.description ?? '', status: organization.status }); setFormError(''); setIsModalOpen(true) }
   const closeModal = () => setIsModalOpen(false)
+  const openDelete = (organization: Organization) => { setDeletingOrganization(organization); setDeleteError('') }
+  const closeDelete = () => { if (!isDeleting) setDeletingOrganization(null) }
+
+  const handleDelete = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!deletingOrganization || !user) return
+    setIsDeleting(true)
+    setDeleteError('')
+    try {
+      await deleteOrganizationCascade(deletingOrganization.id)
+      setDeletingOrganization(null)
+      setNotice('تم حذف المؤسسة وجميع البيانات المرتبطة بها بنجاح.')
+      window.setTimeout(() => setNotice(''), 3500)
+    } catch (deleteFailure) {
+      setDeleteError(getErrorMessage(deleteFailure instanceof Error ? deleteFailure : new Error()))
+    } finally { setIsDeleting(false) }
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -73,5 +93,5 @@ export function OrganizationsPage() {
     } finally { setIsSaving(false) }
   }
 
-  return <><Breadcrumbs current="المؤسسات" /><PageHeader title="المؤسسات" description="إدارة المؤسسات الصحية المرتبطة بحسابك." action={<button type="button" className="primary-button" onClick={() => openCreate()}><Plus size={18} /> إضافة مؤسسة</button>} /><DataToolbar searchValue={search} onSearch={setSearch} filterValue={statusFilter} onFilterChange={setStatusFilter} filterOptions={[{ value: 'all', label: 'كل الحالات' }, { value: 'active', label: 'نشطة' }, { value: 'inactive', label: 'غير نشطة' }]} />{notice && <p className="success-message" role="status">{notice}</p>}{error && <div className="data-feedback error-state" role="alert">{error}</div>}{isLoading ? <div className="data-feedback" role="status">جارٍ تحميل المؤسسات...</div> : !error && filteredOrganizations.length === 0 ? <div className="data-feedback empty-state-inline"><strong>{organizations.length === 0 ? 'لا توجد مؤسسات بعد' : 'لا توجد نتائج مطابقة'}</strong><span>{organizations.length === 0 ? 'أضف أول مؤسسة للبدء.' : 'جرّب تغيير كلمات البحث أو الفلتر.'}</span></div> : !error && <div className="table-card"><div className="table-scroll"><table><thead><tr><th>اسم المؤسسة</th><th>الوصف</th><th>الحالة</th><th>تاريخ الإضافة</th><th>الإجراءات</th></tr></thead><tbody>{filteredOrganizations.map((organization) => <tr key={organization.id}><td className="table-primary">{organization.name}</td><td>{organization.description || '—'}</td><td><StatusBadge label={organization.status === 'active' ? 'نشطة' : 'غير نشطة'} tone={organization.status === 'active' ? 'success' : 'neutral'} /></td><td>{formatDate(organization.createdAt)}</td><td><div className="table-actions"><button type="button" className="icon-button table-action" onClick={() => setViewing(organization)} aria-label={`عرض ${organization.name}`}><Eye size={16} /></button><button type="button" className="icon-button table-action" onClick={() => openEdit(organization)} aria-label={`تعديل ${organization.name}`}><Pencil size={16} /></button></div></td></tr>)}</tbody></table></div></div>}{isModalOpen && <Modal title={editing ? 'تعديل المؤسسة' : 'إضافة مؤسسة'} description="أدخل المعلومات الأساسية للمؤسسة." onClose={closeModal} onSubmit={handleSubmit} submitLabel={isSaving ? 'جارٍ الحفظ...' : 'حفظ'}><div className="form-grid"><label className="field"><span>اسم المؤسسة</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="اكتب اسم المؤسسة" autoFocus /></label><label className="field"><span>الحالة</span><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as Organization['status'] })}><option value="active">نشطة</option><option value="inactive">غير نشطة</option></select></label><label className="field field-full"><span>الوصف</span><textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="وصف مختصر للمؤسسة" rows={3} /></label>{formError && <p className="form-error field-full" role="alert">{formError}</p>}</div></Modal>}{viewing && <Modal title={viewing.name} description="تفاصيل المؤسسة" onClose={() => setViewing(null)}><div className="details-grid"><div><span>الحالة</span><strong>{viewing.status === 'active' ? 'نشطة' : 'غير نشطة'}</strong></div><div><span>تاريخ الإضافة</span><strong>{formatDate(viewing.createdAt)}</strong></div><div className="field-full"><span>الوصف</span><strong>{viewing.description || 'لا يوجد وصف.'}</strong></div></div></Modal>}</>
+  return <><Breadcrumbs current="المؤسسات" /><PageHeader title="المؤسسات" description="إدارة المؤسسات الصحية المرتبطة بحسابك." action={<button type="button" className="primary-button" onClick={() => openCreate()}><Plus size={18} /> إضافة مؤسسة</button>} /><DataToolbar searchValue={search} onSearch={setSearch} filterValue={statusFilter} onFilterChange={setStatusFilter} filterOptions={[{ value: 'all', label: 'كل الحالات' }, { value: 'active', label: 'نشطة' }, { value: 'inactive', label: 'غير نشطة' }]} />{notice && <p className="success-message" role="status">{notice}</p>}{error && <div className="data-feedback error-state" role="alert">{error}</div>}{isLoading ? <div className="data-feedback" role="status">جارٍ تحميل المؤسسات...</div> : !error && filteredOrganizations.length === 0 ? <div className="data-feedback empty-state-inline"><strong>{organizations.length === 0 ? 'لا توجد مؤسسات بعد' : 'لا توجد نتائج مطابقة'}</strong><span>{organizations.length === 0 ? 'أضف أول مؤسسة للبدء.' : 'جرّب تغيير كلمات البحث أو الفلتر.'}</span></div> : !error && <div className="table-card"><div className="table-scroll"><table><thead><tr><th>اسم المؤسسة</th><th>الوصف</th><th>الحالة</th><th>تاريخ الإضافة</th><th>الإجراءات</th></tr></thead><tbody>{filteredOrganizations.map((organization) => <tr key={organization.id}><td className="table-primary">{organization.name}</td><td>{organization.description || '—'}</td><td><StatusBadge label={organization.status === 'active' ? 'نشطة' : 'غير نشطة'} tone={organization.status === 'active' ? 'success' : 'neutral'} /></td><td>{formatDate(organization.createdAt)}</td><td><div className="table-actions"><button type="button" className="icon-button table-action" onClick={() => setViewing(organization)} aria-label={`عرض ${organization.name}`}><Eye size={16} /></button><button type="button" className="icon-button table-action" onClick={() => openEdit(organization)} aria-label={`تعديل ${organization.name}`}><Pencil size={16} /></button><button type="button" className="icon-button table-action" onClick={() => openDelete(organization)} aria-label={`حذف ${organization.name}`}><Trash2 size={16} /></button></div></td></tr>)}</tbody></table></div></div>}{isModalOpen && <Modal title={editing ? 'تعديل المؤسسة' : 'إضافة مؤسسة'} description="أدخل المعلومات الأساسية للمؤسسة." onClose={closeModal} onSubmit={handleSubmit} submitLabel={isSaving ? 'جارٍ الحفظ...' : 'حفظ'}><div className="form-grid"><label className="field"><span>اسم المؤسسة</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="اكتب اسم المؤسسة" autoFocus /></label><label className="field"><span>الحالة</span><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as Organization['status'] })}><option value="active">نشطة</option><option value="inactive">غير نشطة</option></select></label><label className="field field-full"><span>الوصف</span><textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="وصف مختصر للمؤسسة" rows={3} /></label>{formError && <p className="form-error field-full" role="alert">{formError}</p>}</div></Modal>}{viewing && <Modal title={viewing.name} description="تفاصيل المؤسسة" onClose={() => setViewing(null)}><div className="details-grid"><div><span>الحالة</span><strong>{viewing.status === 'active' ? 'نشطة' : 'غير نشطة'}</strong></div><div><span>تاريخ الإضافة</span><strong>{formatDate(viewing.createdAt)}</strong></div><div className="field-full"><span>الوصف</span><strong>{viewing.description || 'لا يوجد وصف.'}</strong></div></div></Modal>}{deletingOrganization && <Modal title="حذف المؤسسة" description="هذا الإجراء نهائي ولا يمكن التراجع عنه." onClose={closeDelete} onSubmit={handleDelete} submitLabel={isDeleting ? 'جارٍ الحذف...' : 'حذف المؤسسة'} isSubmitting={isDeleting}><div className="details-grid"><p className="field-full">هل أنت متأكد من حذف مؤسسة <strong>{deletingOrganization.name}</strong>؟ سيتم حذف جميع العيادات والأطباء والمرضى والمواعيد والدعوات المرتبطة بهذه المؤسسة نهائيًا.</p>{deleteError && <p className="form-error field-full" role="alert">{deleteError}</p>}</div></Modal>}</>
 }
