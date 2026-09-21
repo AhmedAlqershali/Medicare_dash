@@ -1,0 +1,7 @@
+import { Filter, Search, SlidersHorizontal } from 'lucide-react'
+
+type DataToolbarProps = { searchLabel?: string; filterLabel?: string; onFilter?: () => void; searchValue?: string; onSearch?: (value: string) => void; filterOptions?: { value: string; label: string }[]; filterValue?: string; onFilterChange?: (value: string) => void }
+
+export function DataToolbar({ searchLabel = 'البحث في القائمة', filterLabel = 'كل الحالات', onFilter, searchValue = '', onSearch, filterOptions, filterValue = '', onFilterChange }: DataToolbarProps) {
+  return <div className="data-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">{searchLabel}</span><input value={searchValue} onChange={(event) => onSearch?.(event.target.value)} placeholder={searchLabel} /></label>{filterOptions ? <label className="filter-select"><Filter size={16} /><span className="sr-only">تصفية النتائج</span><select value={filterValue} onChange={(event) => onFilterChange?.(event.target.value)}>{filterOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><SlidersHorizontal size={15} /></label> : <button type="button" className="filter-button" onClick={onFilter}><Filter size={16} />{filterLabel}<SlidersHorizontal size={15} /></button>}</div>
+}

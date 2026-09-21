@@ -1,0 +1,11 @@
+import { UserRound, SlidersHorizontal, ShieldCheck } from 'lucide-react'
+import { Breadcrumbs } from '../components/Breadcrumbs'
+import { PageHeader } from '../components/PageHeader'
+import { useAuth } from '../lib/AuthContext'
+
+export function SettingsPage() {
+  const { user } = useAuth()
+  const displayName = user?.displayName || 'مدير النظام'
+
+  return <><Breadcrumbs current="الإعدادات" /><PageHeader title="الإعدادات" description="إدارة تفضيلات مساحة الإدارة وإعدادات الحساب." /><div className="settings-layout"><aside className="settings-nav"><button className="settings-nav-link active"><UserRound size={17} /> الملف الشخصي</button><button className="settings-nav-link"><SlidersHorizontal size={17} /> تفضيلات اللوحة</button><button className="settings-nav-link"><ShieldCheck size={17} /> الأمان</button></aside><div className="settings-panel"><section className="settings-section"><div className="settings-section-heading"><span className="profile-avatar">{displayName.charAt(0).toUpperCase()}</span><div><h2>الملف الشخصي</h2><p>معلومات مدير مساحة الإدارة.</p></div></div><div className="form-grid"><label className="field"><span>الاسم</span><input value={user?.displayName ?? ''} placeholder="غير محدد" readOnly /></label><label className="field"><span>البريد الإلكتروني</span><input value={user?.email ?? ''} placeholder="غير محدد" type="email" readOnly /></label></div></section><section className="settings-section"><div className="settings-section-heading"><div><h2>تفضيلات اللوحة</h2><p>خصص تجربة الاستخدام حسب احتياجك.</p></div></div><div className="settings-row"><div><strong>لغة الواجهة</strong><p>لغة لوحة الإدارة</p></div><span className="setting-value">العربية <span>⌄</span></span></div><div className="settings-row"><div><strong>الإشعارات</strong><p>تنبيهات النظام والبريد الإلكتروني</p></div><label className="switch"><input type="checkbox" defaultChecked /><span /></label></div></section><section className="settings-section security-section"><ShieldCheck size={20} /><div><h2>الأمان والمصادقة</h2><p>تتم حماية الحساب عبر Firebase Authentication والتحقق من صلاحيات المدير.</p></div><span className="coming-soon">مفعل</span></section></div></div></>
+}
