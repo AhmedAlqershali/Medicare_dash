@@ -9,7 +9,8 @@ service cloud.firestore {
     }
 
     match /admins/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
       allow write: if false;
     }
 
