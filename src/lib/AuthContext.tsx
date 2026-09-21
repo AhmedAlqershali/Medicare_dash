@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { browserLocalPersistence, onAuthStateChanged, setPersistence, type User } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDocFromServer } from 'firebase/firestore'
 import { auth, db } from './firebase'
 
 type AuthStatus = 'loading' | 'signed-out' | 'unauthorized' | 'authorized'
@@ -19,9 +19,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let unsubscribe: () => void = () => undefined
+    let checkId = 0
     const initializeAuth = async () => {
       await setPersistence(auth, browserLocalPersistence)
       unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+        const currentCheckId = ++checkId
         setUser(nextUser)
         if (!nextUser) {
           setStatus('signed-out')
@@ -29,11 +31,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          const adminSnapshot = await getDoc(doc(db, 'admins', nextUser.uid))
-          const admin = adminSnapshot.data()
-          setStatus(admin?.role === 'admin' && admin?.active === true ? 'authorized' : 'unauthorized')
+          const uid = nextUser.uid
+          const adminSnapshot = await getDocFromServer(doc(db, 'admins', uid))
+          if (currentCheckId !== checkId) return
+
+          const admin = adminSnapshot.data() as { role?: unknown; active?: unknown } | undefined
+          const isAuthorized = adminSnapshot.exists() && admin?.role === 'admin' && admin?.active === true
+          setStatus(isAuthorized ? 'authorized' : 'unauthorized')
         } catch {
-          setStatus('unauthorized')
+          if (currentCheckId === checkId) setStatus('unauthorized')
         }
       })
     }
